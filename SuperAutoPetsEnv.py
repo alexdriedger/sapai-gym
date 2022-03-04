@@ -4,19 +4,21 @@ import numpy as np
 from typing import Optional
 from sklearn.preprocessing import OneHotEncoder
 
-from sapai import Player, Pet, Food
+from sapai import Player, Pet, Food, Battle
 from sapai.agents import CombinatorialSearch
 
 
-class CustomEnv(gym.Env):
+class SuperAutoPetsEnv(gym.Env):
     metadata = {'render.modes': ['human']}
     MAX_ACTIONS = 100
+    # Max turn limit to prevent infinite loops
+    MAX_TURN = 25
     ALL_PETS = ["pet-ant", "pet-beaver", "pet-beetle", "pet-bluebird", "pet-cricket", "pet-duck", "pet-fish", "pet-horse", "pet-ladybug", "pet-mosquito", "pet-otter", "pet-pig", "pet-sloth", "pet-bat", "pet-crab", "pet-dodo", "pet-dog", "pet-dromedary", "pet-elephant", "pet-flamingo", "pet-hedgehog", "pet-peacock", "pet-rat", "pet-shrimp", "pet-spider", "pet-swan", "pet-tabby-cat", "pet-badger", "pet-blowfish", "pet-caterpillar", "pet-camel", "pet-hatching-chick", "pet-giraffe", "pet-kangaroo", "pet-owl", "pet-ox", "pet-puppy", "pet-rabbit", "pet-sheep", "pet-snail", "pet-tropical-fish", "pet-turtle", "pet-whale", "pet-bison", "pet-buffalo", "pet-deer", "pet-dolphin", "pet-hippo", "pet-llama", "pet-lobster", "pet-monkey", "pet-penguin", "pet-poodle", "pet-rooster", "pet-skunk", "pet-squirrel", "pet-worm", "pet-chicken", "pet-cow", "pet-crocodile", "pet-eagle", "pet-goat", "pet-microbe", "pet-parrot", "pet-rhino", "pet-scorpion", "pet-seal", "pet-shark", "pet-turkey", "pet-cat", "pet-boar", "pet-dragon", "pet-fly", "pet-gorilla", "pet-leopard", "pet-mammoth", "pet-octopus", "pet-sauropod", "pet-snake", "pet-tiger", "pet-tyrannosaurus", "pet-zombie-cricket", "pet-bus", "pet-zombie-fly", "pet-dirty-rat", "pet-chick", "pet-ram", "pet-butterfly", "pet-bee"]
     ALL_FOODS = ["food-apple", "food-honey", "food-cupcake", "food-meat-bone", "food-sleeping-pill", "food-garlic", "food-salad-bowl", "food-canned-food", "food-pear", "food-chili", "food-chocolate", "food-sushi", "food-melon", "food-mushroom", "food-pizza", "food-steak", "food-milk"]
     ALL_STATUSES = ["status-weak", "status-coconut-shield", "status-honey-bee", "status-bone-attack", "status-garlic-armor", "status-splash-attack", "status-melon-armor", "status-extra-life", "status-steak-attack", "status-poison-attack"]
 
     def __init__(self, opponent_generator):
-        super(CustomEnv, self).__init__()
+        super(SuperAutoPetsEnv, self).__init__()
 
         self.action_space = spaces.Discrete(self.MAX_ACTIONS)
         len_obs_space = (len(self.ALL_PETS) + 3) * 11 + (len(self.ALL_FOODS) + 1) * 2 + 5
@@ -27,11 +29,20 @@ class CustomEnv(gym.Env):
         self.just_froze = False
         self.just_reordered = False
 
+        self.opponent_generator = opponent_generator
+        self.opponents = opponent_generator(25)
+
     def step(self, action):
         player_to_act = self.player
         action_name = self._get_action_name(action).split(".")[-1]
         action_method = getattr(player_to_act, action_name)
         action_method(*action[1:])
+
+        # If turn is ended, play an opponent
+        if action_name == "end_turn":
+            opponent = self.opponents[self.player.turn - 1]
+            battle_result = Battle(self.player.team, opponent).battle()
+            self._player_fight_outcome(battle_result)
 
         obs = self._encode_state()
         reward = self.get_reward()
@@ -53,8 +64,8 @@ class CustomEnv(gym.Env):
         print(f"just_reordered: {self.just_reordered}")
 
     def is_done(self):
-        # Cap games at 50 turns to prevent infinite loops
-        return self.player.wins >= 10 or self.player.lives <= 0 or self.player.turn >= 50
+        # Cap games at 25 turns to prevent infinite loops
+        return self.player.wins >= 10 or self.player.lives <= 0 or self.player.turn >= 25
 
     def get_reward(self):
         assert 0 <= self.player.wins <= 10
@@ -94,6 +105,22 @@ class CustomEnv(gym.Env):
         # TODO : FREEZE LIST
         return action_list
 
+    def _player_fight_outcome(self, outcome: int):
+        if outcome == 0:
+            self.player.lf_winner = True
+            self.player.wins += 1
+        elif outcome == 2:
+            self.player.lf_winner = False
+        elif outcome == 1:
+            self.player.lf_winner = False
+            if self.player.turn <= 2:
+                self.player.lives -= 1
+            elif self.player.turn <= 4:
+                self.player.lives -= 2
+            else:
+                self.player.lives -= 3
+            self.player.lives = max(self.player.lives, 0)
+
     def _encode_pets(self, pets):
         arrays_to_concat = list()
         for pet in pets:
@@ -131,7 +158,7 @@ class CustomEnv(gym.Env):
 
     def _encode_state(self):
         # Encode team
-        encoded_team_pets = self._encode_pets([p for p in self.player.team])
+        encoded_team_pets = self._encode_pets([p.pet for p in self.player.team])
 
         # Encode shop
         shop_pets = self.player.shop.pets
@@ -147,8 +174,8 @@ class CustomEnv(gym.Env):
         encoded_shop_foods = self._encode_foods(shop_foods)
 
         # Other player stats
-        # Assumptions: Treat max gold as 20. Treat max turn as 20. Treat max cans as 10.
-        other_stats = np.array(self.player.wins / 10, self.player.lives / 10, min(self.player.gold, 20) / 20, min(self.player.turn, 20) / 20, min(self.player.shop.can, 10) / 10)
+        # Assumptions: Treat max gold as 20. Treat max turn as 25. Treat max cans as 10.
+        other_stats = np.array(self.player.wins / 10, self.player.lives / 10, min(self.player.gold, 20) / 20, min(self.player.turn, 25) / 25, min(self.player.shop.can, 10) / 10)
 
         all_lists = encoded_team_pets + encoded_shop_pets, encoded_shop_foods, other_stats
         return np.concatenate(all_lists)

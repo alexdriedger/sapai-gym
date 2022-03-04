@@ -1,7 +1,12 @@
-import gym
-env = gym.make('CartPole-v1')
-env.reset()
-for _ in range(1000):
-    env.render()
-    env.step(env.action_space.sample()) # take a random action
-env.close()
+from SuperAutoPetsEnv import SuperAutoPetsEnv
+
+
+env = SuperAutoPetsEnv(print)
+obs = env.reset()
+n_steps = 1000
+for _ in range(n_steps):
+    # Random action
+    action = env.action_space.sample()
+    obs, reward, done, info = env.step(action)
+    if done:
+        obs = env.reset()
