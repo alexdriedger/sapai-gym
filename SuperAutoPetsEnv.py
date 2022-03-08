@@ -10,7 +10,7 @@ from sapai.agents import CombinatorialSearch
 
 class SuperAutoPetsEnv(gym.Env):
     metadata = {'render.modes': ['human']}
-    MAX_ACTIONS = 100
+    MAX_ACTIONS = 63
     ACTION_BASE_NUM = {
         "end_turn": 0,
         "buy_pet": 1,
@@ -38,7 +38,8 @@ class SuperAutoPetsEnv(gym.Env):
         super(SuperAutoPetsEnv, self).__init__()
 
         self.action_space = spaces.Discrete(self.MAX_ACTIONS)
-        len_obs_space = (len(self.ALL_PETS) + 3) * 11 + (len(self.ALL_FOODS) + 1) * 2 + 5
+        len_obs_space = (len(self.ALL_PETS) + 2 + len(self.ALL_STATUSES)) * 11 + (len(self.ALL_FOODS) + 1) * 2 + 5
+        print(f"Observation space of {len_obs_space}")
         self.observation_space = spaces.Box(low=0, high=1, shape=(len_obs_space,), dtype=np.uint8)
         self.reward_range = (0, 10)
 
@@ -52,6 +53,9 @@ class SuperAutoPetsEnv(gym.Env):
         self.bad_action_reward_sum = 0
 
     def step(self, action):
+        if not isinstance(action, int):
+            # Convert np int to python int
+            action = action.item()
         if not self._is_valid_action(action):
             # Teach agent to play valid actions
             self.bad_action_reward_sum += self.BAD_ACTION_PENALTY
@@ -72,7 +76,8 @@ class SuperAutoPetsEnv(gym.Env):
         obs = self._encode_state()
         reward = self.get_reward()
         done = self.is_done()
-        info = self.player
+        info = dict()
+        info["player_info"] = self.player
 
         return obs, reward, done, info
 
