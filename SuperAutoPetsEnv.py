@@ -35,7 +35,7 @@ class SuperAutoPetsEnv(gym.Env):
     ALL_FOODS = ["food-apple", "food-honey", "food-cupcake", "food-meat-bone", "food-sleeping-pill", "food-garlic", "food-salad-bowl", "food-canned-food", "food-pear", "food-chili", "food-chocolate", "food-sushi", "food-melon", "food-mushroom", "food-pizza", "food-steak", "food-milk"]
     ALL_STATUSES = ["status-weak", "status-coconut-shield", "status-honey-bee", "status-bone-attack", "status-garlic-armor", "status-splash-attack", "status-melon-armor", "status-extra-life", "status-steak-attack", "status-poison-attack"]
 
-    def __init__(self, opponent_generator):
+    def __init__(self, opponent_generator, valid_actions_only):
         super(SuperAutoPetsEnv, self).__init__()
 
         self.action_space = spaces.Discrete(self.MAX_ACTIONS)
@@ -52,12 +52,15 @@ class SuperAutoPetsEnv(gym.Env):
         self.opponents = opponent_generator(25)
 
         self.bad_action_reward_sum = 0
+        self.valid_actions_only = valid_actions_only
 
     def step(self, action):
         if not isinstance(action, int):
             # Convert np int to python int
             action = action.item()
         if not self._is_valid_action(action):
+            if self.valid_actions_only:
+                raise RuntimeError(f"Environment tried to play invalid action {action}. Valid actions are {self._avail_actions().keys()}")
             # Teach agent to play valid actions
             self.bad_action_reward_sum += self.BAD_ACTION_PENALTY
         else:
@@ -78,7 +81,7 @@ class SuperAutoPetsEnv(gym.Env):
         reward = self.get_reward()
         done = self.is_done()
         info = dict()
-        info["player_info"] = self.player
+        # info["player_info"] = self.player
 
         return obs, reward, done, info
 
@@ -100,7 +103,7 @@ class SuperAutoPetsEnv(gym.Env):
 
     def get_reward(self):
         assert 0 <= self.player.wins <= 10
-        return self.player.wins
+        return self.player.wins + self.bad_action_reward_sum
 
     def _avail_end_turn(self):
         action_dict = dict()
@@ -239,71 +242,6 @@ class SuperAutoPetsEnv(gym.Env):
         for a in self._avail_actions().keys():
             masks[a] = True
         return masks
-
-    # WARNING : These map actions from CombinatorialSearch to actions in `_map_int_to_action`. Mapping multiple times
-    # will not produce the same result. TODO This should be fixed in the future
-    def _map_action_to_int(self, action) -> int:
-        if self._get_action_name(action) == "end_turn":
-            return self.ACTION_BASE_NUM["end_turn"]
-        if self._get_action_name(action) == "buy_pet":
-            pet = self.player.shop[action[1]].item
-            for index, p in enumerate(self.player.shop.pets):
-                if pet == p:
-                    return self.ACTION_BASE_NUM["buy_pet"] + index
-            raise RuntimeError(f"Unknown buy pet action {action}\n{self.player}")
-        if self._get_action_name(action) == "buy_food":
-            food = self.player.shop[action[1]].item
-            for index, f in enumerate(self.player.shop.foods):
-                if food == f:
-                    return self.ACTION_BASE_NUM["buy_food"] + (index * self.MAX_TEAM_PETS) + action[2]
-            raise RuntimeError(f"Unknown buy food action {action}\n{self.player}")
-        if self._get_action_name(action) == "buy_combine":
-            pet = self.player.shop[action[1]].item
-            for index, p in enumerate(self.player.shop.pets):
-                if pet == p:
-                    return self.ACTION_BASE_NUM["buy_combine"] + (index * self.MAX_TEAM_PETS) + action[2]
-            raise RuntimeError(f"Unknown buy combine pet action {action}\n{self.player}")
-        if self._get_action_name(action) == "combine":
-            indexes = [(0, 1), (0, 2), (0, 3), (0, 4), (1, 2), (1, 3), (1, 4), (2, 3), (2, 4), (3, 4)]
-            ind = indexes.index((action[1], action[2]))
-            return self.ACTION_BASE_NUM["combine"] + ind
-        if self._get_action_name(action) == "sell":
-            return self.ACTION_BASE_NUM["sell"] + action[1]
-        if self._get_action_name(action) == "roll":
-            return self.ACTION_BASE_NUM["roll"]
-        raise RuntimeError(f"Action {self._get_action_name(action)} did not map to an action int in the game")
-
-    def _map_int_to_action(self, action_int):
-        if self.ACTION_BASE_NUM["end_turn"] <= action_int < self.ACTION_BASE_NUM["buy_pet"]:
-            return self.player.end_turn,
-        if self.ACTION_BASE_NUM["buy_pet"] <= action_int < self.ACTION_BASE_NUM["buy_food"]:
-            # Buy one of the 6 possible pets
-            index = action_int - self.ACTION_BASE_NUM["buy_pet"]
-            pet_to_buy = self.player.shop.pets[index]
-            return self.player.buy_pet, pet_to_buy
-        if self.ACTION_BASE_NUM["buy_food"] <= action_int < self.ACTION_BASE_NUM["buy_combine"]:
-            base_index = action_int - self.ACTION_BASE_NUM["buy_food"]
-            food_index = base_index // self.MAX_TEAM_PETS
-            food_to_buy = self.player.shop.foods[food_index]
-            pet_index = base_index % self.MAX_TEAM_PETS
-            return self.player.buy_food, food_to_buy, pet_index
-        if self.ACTION_BASE_NUM["buy_combine"] <= action_int < self.ACTION_BASE_NUM["combine"]:
-            base_index = action_int - self.ACTION_BASE_NUM["buy_combine"]
-            shop_pet_index = base_index // self.MAX_TEAM_PETS
-            pet_to_buy = self.player.shop.pets[shop_pet_index]
-            team_pet_index = base_index % self.MAX_TEAM_PETS
-            return self.player.buy_combine, pet_to_buy, team_pet_index
-        if self.ACTION_BASE_NUM["combine"] <= action_int < self.ACTION_BASE_NUM["sell"]:
-            base_index = action_int - self.ACTION_BASE_NUM["combine"]
-            indexes = [(0, 1), (0, 2), (0, 3), (0, 4), (1, 2), (1, 3), (1, 4), (2, 3), (2, 4), (3, 4)]
-            team_pet_index_1, team_pet_index_2 = indexes[base_index]
-            return self.player.combine, team_pet_index_1, team_pet_index_2
-        if self.ACTION_BASE_NUM["sell"] <= action_int < self.ACTION_BASE_NUM["roll"]:
-            base_index = action_int - self.ACTION_BASE_NUM["sell"]
-            return self.player.sell, base_index
-        if self.ACTION_BASE_NUM["roll"] <= action_int:
-            return self.player.roll,
-        raise RuntimeError(f"Action int {action_int} did not map to an action in the game")
 
     def _player_fight_outcome(self, outcome: int):
         if outcome == 0:
