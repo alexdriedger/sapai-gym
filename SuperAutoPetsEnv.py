@@ -2,6 +2,7 @@ import gym
 from gym import spaces
 import numpy as np
 from typing import Optional
+import itertools
 from sklearn.preprocessing import OneHotEncoder
 
 from sapai import Player, Pet, Food, Battle
@@ -62,7 +63,7 @@ class SuperAutoPetsEnv(gym.Env):
         else:
             # Resolve action
             player_to_act = self.player
-            action_to_play = self._map_int_to_action(action)
+            action_to_play = self._avail_actions()[action]
             action_name = self._get_action_name(action_to_play).split(".")[-1]
             action_method = getattr(player_to_act, action_name)
             action_method(*action_to_play[1:])
@@ -101,46 +102,143 @@ class SuperAutoPetsEnv(gym.Env):
         assert 0 <= self.player.wins <= 10
         return self.player.wins
 
-    @staticmethod
-    def _avail_roll(player_to_check: Player):
-        action_list = []
-        if player_to_check.gold > 1:
-            action_list.append((player_to_check.roll,))
-        return action_list
+    def _avail_end_turn(self):
+        action_dict = dict()
+        action_num = self.ACTION_BASE_NUM["end_turn"]
+        action_dict[action_num] = (self.player.end_turn,)
+        return action_dict
 
-    @staticmethod
-    def _avail_end_turn(player_to_check: Player):
-        return [(player_to_check.end_turn,)]
+    def _avail_buy_pets(self):
+        action_dict = dict()
+        if len(self.player.team) == 5:
+            # Cannot buy for full team
+            return action_dict
+        pet_index = 0
+        for shop_idx, shop_slot in enumerate(self.player.shop):
+            if shop_slot.slot_type == "pet":
+                if shop_slot.cost <= self.player.gold:
+                    action_num = self.ACTION_BASE_NUM["buy_pet"] + pet_index
+                    action_dict[action_num] = (self.player.buy_pet, shop_idx)
+                pet_index += 1
+        return action_dict
+
+    def _avail_buy_foods(self):
+        action_dict = dict()
+        if len(self.player.team) == 0:
+            return action_dict
+        food_index = 0
+        for shop_idx, shop_slot in enumerate(self.player.shop):
+            if shop_slot.slot_type == "food":
+                if shop_slot.cost <= self.player.gold:
+                    for team_idx, team_slot in enumerate(self.player.team):
+                        if team_slot.empty:
+                            continue
+                        action_num = self.ACTION_BASE_NUM["buy_food"] + (food_index * self.MAX_TEAM_PETS) + team_idx
+                        action_dict[action_num] = (self.player.buy_food, shop_idx, team_idx)
+                food_index += 1
+        return action_dict
+
+    def _avail_buy_combine(self):
+        action_dict = dict()
+        team_names = dict()
+        if len(self.player.team) == 0:
+            return action_dict
+
+        # Find pet names on team
+        for team_idx, slot in enumerate(self.player.team):
+            if slot.empty:
+                continue
+            if slot.pet.name not in team_names:
+                team_names[slot.pet.name] = []
+            team_names[slot.pet.name].append(team_idx)
+
+        # Search through pets in the shop
+        shop_pet_index = 0
+        for shop_idx, shop_slot in enumerate(self.player.shop):
+            if shop_slot.slot_type == "pet":
+                # Can't combine if pet not already on team
+                if shop_slot.item.name not in team_names:
+                    continue
+
+                if shop_slot.cost <= self.player.gold:
+                    for team_idx in team_names[shop_slot.item.name]:
+                        action_num = self.ACTION_BASE_NUM["buy_combine"] + (shop_pet_index * self.MAX_TEAM_PETS) + team_idx
+                        action_dict[action_num] = (self.player.buy_combine, shop_idx, team_idx)
+                shop_pet_index += 1
+
+        return action_dict
+
+    def _avail_team_combine(self):
+        action_dict = dict()
+
+        if len(self.player.team) <= 1:
+            return action_dict
+
+        team_names = {}
+        for slot_idx, slot in enumerate(self.player.team):
+            if slot.empty:
+                continue
+            if slot.pet.name not in team_names:
+                team_names[slot.pet.name] = []
+            team_names[slot.pet.name].append(slot_idx)
+
+        for key, value in team_names.items():
+            if len(value) == 1:
+                continue
+
+            for idx0, idx1 in itertools.combinations(value, r=2):
+                indexes = [(0, 1), (0, 2), (0, 3), (0, 4), (1, 2), (1, 3), (1, 4), (2, 3), (2, 4), (3, 4)]
+                action_num = self.ACTION_BASE_NUM["combine"] + indexes.index((idx0, idx1))
+                action_dict[action_num] = (self.player.combine, idx0, idx1)
+
+        return action_dict
+
+    def _avail_sell(self):
+        action_dict = dict()
+        for team_idx, slot in enumerate(self.player.team):
+            if slot.empty:
+                continue
+            action_num = self.ACTION_BASE_NUM["sell"] + team_idx
+            action_dict[action_num] = (self.player.sell, team_idx)
+        return action_dict
+
+    def _avail_roll(self):
+        action_dict = dict()
+        if self.player.gold > 1:
+            action_dict[self.ACTION_BASE_NUM["roll"]] = (self.player.roll,)
+        return action_dict
 
     @staticmethod
     def _get_action_name(input_action):
         return str(input_action[0].__name__)
 
+    # Maps an integer representation of the action to the action
     def _avail_actions(self):
-        # TODO : REMOVE AND JUST GENERATE ACTION NUMBERS DIRECTLY
-        player = self.player
-        cs = CombinatorialSearch()
+        end_turn_actions = self._avail_end_turn()
+        buy_pet_actions = self._avail_buy_pets()
+        buy_food_actions = self._avail_buy_foods()
+        buy_combine_actions = self._avail_buy_combine()
+        team_combine_actions = self._avail_team_combine()
+        sell_actions = self._avail_sell()
+        roll_actions = self._avail_roll()
+        # TODO : REORDERING
+        # TODO : FREEZE SHOP ITEMS
 
-        action_list = []
-        action_list += self._avail_end_turn(player)
-        action_list += CombinatorialSearch.avail_buy_pets(cs, player)
-        action_list += CombinatorialSearch.avail_buy_food(cs, player)
-        action_list += CombinatorialSearch.avail_buy_combine(cs, player)
-        action_list += CombinatorialSearch.avail_team_combine(cs, player)
-        action_list += CombinatorialSearch.avail_sell(cs, player)
-        # action_list += CombinatorialSearch.avail_sell_buy(cs, player)
-        action_list += self._avail_roll(player)
-        # TODO : RE-ENABLE REORDERING
-        # if not self.just_reordered:
-        #     action_list += CombinatorialSearch.avail_team_order(cs, player)
-        # TODO : FREEZE LIST
-        return action_list
+        # Verify no duplicates or incorrectly indexed actions
+        total_action_len = len(end_turn_actions) + len(buy_pet_actions) + len(buy_food_actions) + len(buy_combine_actions) + len(team_combine_actions) + len(sell_actions) + len(roll_actions)
+        all_avail_actions = end_turn_actions | buy_pet_actions | buy_food_actions | buy_combine_actions | team_combine_actions | sell_actions | roll_actions
+        assert total_action_len == len(all_avail_actions)
+
+        return all_avail_actions
 
     def _is_valid_action(self, action: int) -> bool:
-        # TODO : REFACTOR TO JUST GENERATE ACTION NUMBERS DIRECTLY
-        # Get all avail actions and map to integer representation
-        avail_action_ints = [self._map_action_to_int(a) for a in self._avail_actions()]
-        return action in avail_action_ints
+        return action in self._avail_actions().keys()
+
+    def action_masks(self) -> list[bool]:
+        masks = [False] * self.MAX_ACTIONS
+        for a in self._avail_actions().keys():
+            masks[a] = True
+        return masks
 
     # WARNING : These map actions from CombinatorialSearch to actions in `_map_int_to_action`. Mapping multiple times
     # will not produce the same result. TODO This should be fixed in the future
@@ -152,7 +250,6 @@ class SuperAutoPetsEnv(gym.Env):
             for index, p in enumerate(self.player.shop.pets):
                 if pet == p:
                     return self.ACTION_BASE_NUM["buy_pet"] + index
-            print(f"Index of pet was {action[1]}")
             raise RuntimeError(f"Unknown buy pet action {action}\n{self.player}")
         if self._get_action_name(action) == "buy_food":
             food = self.player.shop[action[1]].item
