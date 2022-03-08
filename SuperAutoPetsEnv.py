@@ -6,7 +6,6 @@ import itertools
 from sklearn.preprocessing import OneHotEncoder
 
 from sapai import Player, Pet, Food, Battle
-from sapai.agents import CombinatorialSearch
 
 
 class SuperAutoPetsEnv(gym.Env):
