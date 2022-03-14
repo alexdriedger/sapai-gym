@@ -236,7 +236,7 @@ class SuperAutoPetsEnv(gym.Env):
     def _is_valid_action(self, action: int) -> bool:
         return action in self._avail_actions().keys()
 
-    def action_masks(self) -> list[bool]:
+    def action_masks(self):
         masks = [False] * self.MAX_ACTIONS
         for a in self._avail_actions().keys():
             masks[a] = True
