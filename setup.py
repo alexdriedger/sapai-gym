@@ -10,4 +10,5 @@ setup(
           'numpy~=1.22.2'
           'sklearn'
       ],
+      data_files=[],
 )
