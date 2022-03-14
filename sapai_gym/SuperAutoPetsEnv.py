@@ -34,7 +34,18 @@ class SuperAutoPetsEnv(gym.Env):
     ALL_FOODS = ["food-apple", "food-honey", "food-cupcake", "food-meat-bone", "food-sleeping-pill", "food-garlic", "food-salad-bowl", "food-canned-food", "food-pear", "food-chili", "food-chocolate", "food-sushi", "food-melon", "food-mushroom", "food-pizza", "food-steak", "food-milk"]
     ALL_STATUSES = ["status-weak", "status-coconut-shield", "status-honey-bee", "status-bone-attack", "status-garlic-armor", "status-splash-attack", "status-melon-armor", "status-extra-life", "status-steak-attack", "status-poison-attack"]
 
-    def __init__(self, opponent_generator, valid_actions_only):
+    def __init__(self, opponent_generator, valid_actions_only, manual_battles=False):
+        """
+        Create a gym for Super Auto Pets.
+        :param opponent_generator: Function that generates the opponents to play against when a shop turn is ended. This
+        function should take one param (an int) that is the number of turns to generate opponents for. It should return
+        a list of opponents, starting from turn 1
+        :param valid_actions_only: bool. If set to true, will raise an exception when an invalid action is pass to step.
+        This is helpful when action masks are used
+        :param manual_battles: bool. If set to true, battles will not be manually executed. The caller is responsible
+        for starting the next turn after a turn is ended. This is helpful when battles are irrelevant to task at hand,
+        or when battles are manually controlled (eg. in an arena with multiple agents)
+        """
         super(SuperAutoPetsEnv, self).__init__()
 
         self.action_space = spaces.Discrete(self.MAX_ACTIONS)
@@ -48,10 +59,14 @@ class SuperAutoPetsEnv(gym.Env):
         self.just_reordered = False
 
         self.opponent_generator = opponent_generator
-        self.opponents = opponent_generator(25)
-
-        self.bad_action_reward_sum = 0
         self.valid_actions_only = valid_actions_only
+        self.manual_battles = manual_battles
+
+        # Initialization. Initial values assigned in reset
+        self.opponents = None
+        self.bad_action_reward_sum = 0
+
+        self.reset()
 
     def step(self, action):
         if not isinstance(action, int):
@@ -71,10 +86,11 @@ class SuperAutoPetsEnv(gym.Env):
             action_method(*action_to_play[1:])
 
             # If turn is ended, play an opponent
-            if action_name == "end_turn":
+            if action_name == "end_turn" and not self.manual_battles:
                 opponent = self.opponents[self.player.turn - 1]
                 battle_result = Battle(self.player.team, opponent).battle()
                 self._player_fight_outcome(battle_result)
+                self.player.start_turn()
 
         obs = self._encode_state()
         reward = self.get_reward()
@@ -88,6 +104,11 @@ class SuperAutoPetsEnv(gym.Env):
         self.player = Player()
         self.just_froze = False
         self.just_reordered = False
+
+        if not self.manual_battles:
+            self.opponents = self.opponent_generator(25)
+
+        self.bad_action_reward_sum = 0
 
         return self._encode_state()
 
