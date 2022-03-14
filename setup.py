@@ -5,7 +5,7 @@ setup(
       version='0.1',
       packages=['sapai-gym'],
       install_requires=[
-          'git+https://github.com/manny405/sapai.git',
+          "git+https://github.com/manny405/sapai.git@main",
           "gym~=0.22.0",
           "numpy~=1.21.5",
           "sklearn"
