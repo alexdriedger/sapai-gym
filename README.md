@@ -62,7 +62,7 @@ def train_with_masks():
     num_games = 0
     while num_games < 100:
         # Predict outcome with model
-        action_masks = get_action_masks(t_env)
+        action_masks = get_action_masks(env)
         action, _states = model.predict(obs, action_masks=action_masks, deterministic=True)
 
         obs, reward, done, info = env.step(action)
