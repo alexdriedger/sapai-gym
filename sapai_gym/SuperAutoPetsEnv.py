@@ -48,11 +48,17 @@ class SuperAutoPetsEnv(gym.Env):
         """
         super(SuperAutoPetsEnv, self).__init__()
 
+        # Check params
+        if manual_battles:
+            assert opponent_generator is None
+        else:
+            assert opponent_generator is not None
+
         self.action_space = spaces.Discrete(self.MAX_ACTIONS)
         len_obs_space = (len(self.ALL_PETS) + 2 + len(self.ALL_STATUSES)) * 11 + (len(self.ALL_FOODS) + 1) * 2 + 5
         print(f"Observation space of {len_obs_space}")
         self.observation_space = spaces.Box(low=0, high=1, shape=(len_obs_space,), dtype=np.uint8)
-        self.reward_range = (0, 10)
+        self.reward_range = (0, 1)
 
         self.player = Player()
         self.just_froze = False
