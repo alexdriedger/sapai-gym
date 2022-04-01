@@ -77,7 +77,7 @@ def _filter_remove_by_action_name(actions: dict[int, any], match_criteria: list[
     return {index: action for index, action in actions.items() if action[0].__name__ not in match_criteria}
 
 
-def get_buy_food_action_front(player_to_act: Player, actions: dict[int, any]) -> dict[int, any]:
+def _get_buy_food_action_front(player_to_act: Player, actions: dict[int, any]) -> dict[int, any]:
     # Buy food, target the front pet if it's a targeting food
     buy_food_actions = _filter_by_action_name(actions, ["buy_food"])
     if len(buy_food_actions) >= 1:
@@ -89,7 +89,7 @@ def get_buy_food_action_front(player_to_act: Player, actions: dict[int, any]) ->
     return None
 
 
-def get_buy_food_action_everyone(player_to_act: Player, actions: dict[int, any]) -> dict[int, any]:
+def _get_buy_food_action_everyone(player_to_act: Player, actions: dict[int, any]) -> dict[int, any]:
     # Buy food, target the front pet if it's a targeting food
     buy_food_actions = _filter_by_action_name(actions, ["buy_food"])
     if len(buy_food_actions) >= 1:
@@ -149,21 +149,21 @@ def _biggest_numbers(player_to_act: Player, actions: dict[int, any], buy_food_me
     return end_turn_action.popitem()[0]
 
 
-def biggest_numbers_vert(player_to_act: Player, actions: dict[int, any]) -> int:
+def biggest_numbers_vertical_scaling_agent(player_to_act: Player, actions: dict[int, any]) -> int:
     """
     Always increase the total (health+attack) of the team. When buying food, feeds the first pet.
     :param player_to_act: Player to choose action for
     :param actions: Available actions
     :return: Action to play
     """
-    return _biggest_numbers(player_to_act, actions, get_buy_food_action_front)
+    return _biggest_numbers(player_to_act, actions, _get_buy_food_action_front)
 
 
-def biggest_numbers_horizontal(player_to_act: Player, actions: dict[int, any]) -> int:
+def biggest_numbers_horizontal_scaling_agent(player_to_act: Player, actions: dict[int, any]) -> int:
     """
     Always increase the total (health+attack) of the team. When buying food, feeds pets randomly.
     :param player_to_act: Player to choose action for
     :param actions: Available actions
     :return: Action to play
     """
-    return _biggest_numbers(player_to_act, actions, get_buy_food_action_everyone)
+    return _biggest_numbers(player_to_act, actions, _get_buy_food_action_everyone)

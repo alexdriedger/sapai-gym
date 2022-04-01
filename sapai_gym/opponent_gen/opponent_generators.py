@@ -32,4 +32,4 @@ def random_opp_generator(num_turns):
 
 
 def biggest_numbers_horizontal_opp_generator(num_turns):
-    return opp_generator(num_turns, baselines.biggest_numbers_horizontal)
+    return opp_generator(num_turns, baselines.biggest_numbers_horizontal_scaling_agent)
