@@ -1,8 +1,10 @@
 from sapai import *
 from random import choice
 
+from typing import Dict, List
 
-def random_agent(player_to_act: Player, actions: dict[int, any]) -> int:
+
+def random_agent(player_to_act: Player, actions: Dict[int, any]) -> int:
     """
     Returns a random action
     :param player_to_act: Not used in this function
@@ -12,7 +14,7 @@ def random_agent(player_to_act: Player, actions: dict[int, any]) -> int:
     return choice(list(actions.keys()))
 
 
-def random_agent_max_spend(player_to_act: Player, actions: dict[int, any]) -> int:
+def random_agent_max_spend(player_to_act: Player, actions: Dict[int, any]) -> int:
     """
     A random agent that spends all of its money before ending the turn.
     :param player_to_act: Not used in this function
@@ -45,7 +47,7 @@ def _map_sell_pet_action_to_team_pet(player_to_act: Player, action):
     return player_to_act.team[team_index].pet
 
 
-def _feed_front_pet_actions(player_to_act: Player, actions: dict[int, any]):
+def _feed_front_pet_actions(player_to_act: Player, actions: Dict[int, any]):
     front_pet_index = 0
     for i in range(5):
         front_pet_index = i
@@ -56,28 +58,28 @@ def _feed_front_pet_actions(player_to_act: Player, actions: dict[int, any]):
     return {index: action for index, action in actions.items() if action[2] == front_pet_index}
 
 
-def _find_weakest_pet_on_team(player_to_act: Player, actions: dict[int, any]):
+def _find_weakest_pet_on_team(player_to_act: Player, actions: Dict[int, any]):
     # sorted_list = sorted(actions, key=lambda a: _map_sell_pet_action_to_team_pet(player_to_act, a).attack + _map_sell_pet_action_to_team_pet(player_to_act, a).health)
     # return sorted_list[0]
     sorted_dict = dict(sorted(actions.items(), key=lambda a: _map_buy_pet_action_to_shop_pet(player_to_act, a[1]).attack + _map_buy_pet_action_to_shop_pet(player_to_act, a[1]).health))
     return sorted_dict.popitem()
 
 
-def _find_strongest_shop_pet(player_to_act: Player, actions: dict[int, any]):
+def _find_strongest_shop_pet(player_to_act: Player, actions: Dict[int, any]):
     # sorted_list = sorted(actions, key=lambda a: _map_buy_pet_action_to_shop_pet(player_to_act, a).attack + _map_buy_pet_action_to_shop_pet(player_to_act, a).health, reverse=True)
     sorted_dict = dict(sorted(actions.items(), key=lambda a: _map_buy_pet_action_to_shop_pet(player_to_act, a[1]).attack + _map_buy_pet_action_to_shop_pet(player_to_act, a[1]).health, reverse=True))
     return sorted_dict.popitem()
 
 
-def _filter_by_action_name(actions: dict[int, any], match_criteria: list[str]) -> dict[int, any]:
+def _filter_by_action_name(actions: Dict[int, any], match_criteria: List[str]) -> Dict[int, any]:
     return {index: action for index, action in actions.items() if action[0].__name__ in match_criteria}
 
 
-def _filter_remove_by_action_name(actions: dict[int, any], match_criteria: list[str]) -> dict[int, any]:
+def _filter_remove_by_action_name(actions: Dict[int, any], match_criteria: List[str]) -> Dict[int, any]:
     return {index: action for index, action in actions.items() if action[0].__name__ not in match_criteria}
 
 
-def _get_buy_food_action_front(player_to_act: Player, actions: dict[int, any]) -> dict[int, any]:
+def _get_buy_food_action_front(player_to_act: Player, actions: Dict[int, any]) -> Dict[int, any]:
     # Buy food, target the front pet if it's a targeting food
     buy_food_actions = _filter_by_action_name(actions, ["buy_food"])
     if len(buy_food_actions) >= 1:
@@ -89,7 +91,7 @@ def _get_buy_food_action_front(player_to_act: Player, actions: dict[int, any]) -
     return None
 
 
-def _get_buy_food_action_everyone(player_to_act: Player, actions: dict[int, any]) -> dict[int, any]:
+def _get_buy_food_action_everyone(player_to_act: Player, actions: Dict[int, any]) -> Dict[int, any]:
     # Buy food, target the front pet if it's a targeting food
     buy_food_actions = _filter_by_action_name(actions, ["buy_food"])
     if len(buy_food_actions) >= 1:
@@ -100,7 +102,7 @@ def _get_buy_food_action_everyone(player_to_act: Player, actions: dict[int, any]
     return None
 
 
-def _biggest_numbers(player_to_act: Player, actions: dict[int, any], buy_food_method):
+def _biggest_numbers(player_to_act: Player, actions: Dict[int, any], buy_food_method):
     if len(actions) == 1:
         return actions[0]
 
@@ -149,7 +151,7 @@ def _biggest_numbers(player_to_act: Player, actions: dict[int, any], buy_food_me
     return end_turn_action.popitem()[0]
 
 
-def biggest_numbers_vertical_scaling_agent(player_to_act: Player, actions: dict[int, any]) -> int:
+def biggest_numbers_vertical_scaling_agent(player_to_act: Player, actions: Dict[int, any]) -> int:
     """
     Always increase the total (health+attack) of the team. When buying food, feeds the first pet.
     :param player_to_act: Player to choose action for
@@ -159,7 +161,7 @@ def biggest_numbers_vertical_scaling_agent(player_to_act: Player, actions: dict[
     return _biggest_numbers(player_to_act, actions, _get_buy_food_action_front)
 
 
-def biggest_numbers_horizontal_scaling_agent(player_to_act: Player, actions: dict[int, any]) -> int:
+def biggest_numbers_horizontal_scaling_agent(player_to_act: Player, actions: Dict[int, any]) -> int:
     """
     Always increase the total (health+attack) of the team. When buying food, feeds pets randomly.
     :param player_to_act: Player to choose action for
