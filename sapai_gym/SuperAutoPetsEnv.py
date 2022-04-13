@@ -58,7 +58,6 @@ class SuperAutoPetsEnv(gym.Env):
 
         self.action_space = spaces.Discrete(self.MAX_ACTIONS)
         len_obs_space = (len(self.ALL_PETS) + 2 + len(self.ALL_STATUSES)) * 11 + (len(self.ALL_FOODS) + 1) * 2 + 5
-        print(f"Observation space of {len_obs_space}")
         self.observation_space = spaces.Box(low=0, high=1, shape=(len_obs_space,), dtype=np.uint8)
         self.reward_range = (0, 1)
 
@@ -77,6 +76,17 @@ class SuperAutoPetsEnv(gym.Env):
         self.reset()
 
     def step(self, action):
+        self.resolve_action(action)
+
+        obs = self._encode_state()
+        reward = self.get_reward()
+        done = self.is_done()
+        info = dict()
+
+        return obs, reward, done, info
+
+    def resolve_action(self, action):
+        """ Resolve the action. step() should be used in cases where state is needed to be returned"""
         if not isinstance(action, int):
             # Convert np int to python int
             action = action.item()
@@ -99,14 +109,6 @@ class SuperAutoPetsEnv(gym.Env):
                 battle_result = Battle(self.player.team, opponent).battle()
                 self._player_fight_outcome(battle_result)
                 self.player.start_turn()
-
-        obs = self._encode_state()
-        reward = self.get_reward()
-        done = self.is_done()
-        info = dict()
-        # info["player_info"] = self.player
-
-        return obs, reward, done, info
 
     def reset(self, *, seed: Optional[int] = None, return_info: bool = False, options: Optional[dict] = None,):
         self.player = Player()

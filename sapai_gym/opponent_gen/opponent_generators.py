@@ -12,7 +12,7 @@ def _do_store_phase(env: SuperAutoPetsEnv, ai):
     while True:
         actions = env._avail_actions()
         chosen_action = ai(env.player, actions)
-        env.step(chosen_action)
+        env.resolve_action(chosen_action)
 
         if SuperAutoPetsEnv._get_action_name(actions[chosen_action]) == "end_turn":
             return
