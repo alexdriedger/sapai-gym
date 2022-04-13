@@ -266,7 +266,7 @@ class SuperAutoPetsEnv(gym.Env):
 
         # Verify no duplicates or incorrectly indexed actions
         total_action_len = len(end_turn_actions) + len(buy_pet_actions) + len(buy_food_actions) + len(buy_combine_actions) + len(team_combine_actions) + len(sell_actions) + len(roll_actions)
-        all_avail_actions = end_turn_actions | buy_pet_actions | buy_food_actions | buy_combine_actions | team_combine_actions | sell_actions | roll_actions
+        all_avail_actions = {**end_turn_actions, **buy_pet_actions, **buy_food_actions, **buy_combine_actions, **team_combine_actions, **sell_actions, **roll_actions}
         assert total_action_len == len(all_avail_actions)
 
         return all_avail_actions
