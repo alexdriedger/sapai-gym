@@ -11,7 +11,7 @@ from sapai.data import data
 
 class SuperAutoPetsEnv(gym.Env):
     metadata = {'render.modes': ['human']}
-    MAX_ACTIONS = 63
+    MAX_ACTIONS = 65
     ACTION_BASE_NUM = {
         "end_turn": 0,
         "buy_pet": 1,
