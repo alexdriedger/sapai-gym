@@ -6,6 +6,7 @@ import itertools
 from sklearn.preprocessing import OneHotEncoder
 
 from sapai import Player, Pet, Food, Battle
+from sapai.data import data
 
 
 class SuperAutoPetsEnv(gym.Env):
@@ -18,7 +19,8 @@ class SuperAutoPetsEnv(gym.Env):
         "buy_combine": 17,
         "combine": 47,
         "sell": 57,
-        "roll": 62
+        "roll": 62,
+        "buy_food_team": 63
     }
     # Max turn limit to prevent infinite loops
     MAX_TURN = 25
@@ -161,11 +163,18 @@ class SuperAutoPetsEnv(gym.Env):
         for shop_idx, shop_slot in enumerate(self.player.shop):
             if shop_slot.slot_type == "food":
                 if shop_slot.cost <= self.player.gold:
-                    for team_idx, team_slot in enumerate(self.player.team):
-                        if team_slot.empty:
-                            continue
-                        action_num = self.ACTION_BASE_NUM["buy_food"] + (food_index * self.MAX_TEAM_PETS) + team_idx
-                        action_dict[action_num] = (self.player.buy_food, shop_idx, team_idx)
+                    # Multi-foods (eg. salad, sushi, etc.)
+                    food_effect = data["foods"][shop_slot.item.name]["ability"]["effect"]
+                    if shop_slot.item.name == "food-canned-food" or ("target" in food_effect and "kind" in food_effect["target"] and food_effect["target"]["kind"] == "RandomFriend"):
+                        action_num = self.ACTION_BASE_NUM["buy_food_team"] + food_index
+                        action_dict[action_num] = (self.player.buy_food, shop_idx)
+                    else:
+                        # Single target foods (eg. apple, melon)
+                        for team_idx, team_slot in enumerate(self.player.team):
+                            if team_slot.empty:
+                                continue
+                            action_num = self.ACTION_BASE_NUM["buy_food"] + (food_index * self.MAX_TEAM_PETS) + team_idx
+                            action_dict[action_num] = (self.player.buy_food, shop_idx, team_idx)
                 food_index += 1
         return action_dict
 
@@ -341,7 +350,7 @@ class SuperAutoPetsEnv(gym.Env):
 
         # Other player stats
         # Assumptions: Treat max gold as 20. Treat max turn as 25. Treat max cans as 10.
-        other_stats = np.array([self.player.wins / 10, self.player.lives / 10, min(self.player.gold, 20) / 20, min(self.player.turn, 25) / 25, min(self.player.shop.can, 10) / 10])
+        other_stats = np.array([self.player.wins / 10, self.player.lives / 10, min(self.player.gold, 20) / 20, min(self.player.turn, 25) / 25, min(self.player.shop.shop_attack, 20) / 20])
 
         all_lists = list()
         all_lists.extend(encoded_team_pets)
