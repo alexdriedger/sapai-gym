@@ -1,3 +1,5 @@
+import math
+
 import gym
 from gym import spaces
 import numpy as np
@@ -11,7 +13,7 @@ from sapai.data import data
 
 class SuperAutoPetsEnv(gym.Env):
     metadata = {'render.modes': ['human']}
-    MAX_ACTIONS = 65
+    MAX_ACTIONS = 213
     ACTION_BASE_NUM = {
         "end_turn": 0,
         "buy_pet": 1,
@@ -20,7 +22,8 @@ class SuperAutoPetsEnv(gym.Env):
         "combine": 47,
         "sell": 57,
         "roll": 62,
-        "buy_food_team": 63
+        "buy_food_team": 63,
+        "reorder": 65,
     }
     # Max turn limit to prevent infinite loops
     MAX_TURN = 25
@@ -63,7 +66,6 @@ class SuperAutoPetsEnv(gym.Env):
 
         self.player = Player()
         self.just_froze = False
-        self.just_reordered = False
 
         self.opponent_generator = opponent_generator
         self.valid_actions_only = valid_actions_only
@@ -109,11 +111,19 @@ class SuperAutoPetsEnv(gym.Env):
                 battle_result = Battle(self.player.team, opponent).battle()
                 self._player_fight_outcome(battle_result)
                 self.player.start_turn()
+        self.last_action = action
+
+    @property
+    def just_reordered(self):
+        if self.last_action is None:
+            return False
+        return get_action_name(self.last_action) == "reorder"
+
 
     def reset(self, *, seed: Optional[int] = None, return_info: bool = False, options: Optional[dict] = None,):
         self.player = Player()
         self.just_froze = False
-        self.just_reordered = False
+        self.last_action = None
 
         if not self.manual_battles:
             self.opponents = self.opponent_generator(25)
@@ -126,6 +136,7 @@ class SuperAutoPetsEnv(gym.Env):
         print(self.player)
         print(f"just_froze: {self.just_froze}")
         print(f"just_reordered: {self.just_reordered}")
+        print(f"last_action: {get_action_name(self.last_action)}, {self.last_action}")
 
     def is_done(self):
         # Cap games at 25 turns to prevent infinite loops
@@ -250,6 +261,22 @@ class SuperAutoPetsEnv(gym.Env):
             action_dict[self.ACTION_BASE_NUM["roll"]] = (self.player.roll,)
         return action_dict
 
+    def _avail_reorder(self):
+        if self.just_reordered:
+            return {}
+
+        team_size = len(self.player.team)
+        offset = self.ACTION_BASE_NUM["reorder"] + sum([math.factorial(k) - 1 for k in range(team_size)])
+        perms = itertools.permutations(range(team_size))
+
+        # Skip the do-nothing permutation
+        next(perms)
+
+        return {
+            offset + k: (self.player.reorder, perm)
+            for k, perm in enumerate(perms)
+        }
+
     @staticmethod
     def _get_action_name(input_action):
         return str(input_action[0].__name__)
@@ -263,12 +290,12 @@ class SuperAutoPetsEnv(gym.Env):
         team_combine_actions = self._avail_team_combine()
         sell_actions = self._avail_sell()
         roll_actions = self._avail_roll()
-        # TODO : REORDERING
+        reorder_actions = self._avail_reorder()
         # TODO : FREEZE SHOP ITEMS
 
         # Verify no duplicates or incorrectly indexed actions
-        total_action_len = len(end_turn_actions) + len(buy_pet_actions) + len(buy_food_actions) + len(buy_combine_actions) + len(team_combine_actions) + len(sell_actions) + len(roll_actions)
-        all_avail_actions = {**end_turn_actions, **buy_pet_actions, **buy_food_actions, **buy_combine_actions, **team_combine_actions, **sell_actions, **roll_actions}
+        total_action_len = len(end_turn_actions) + len(buy_pet_actions) + len(buy_food_actions) + len(buy_combine_actions) + len(team_combine_actions) + len(sell_actions) + len(roll_actions) + len(reorder_actions)
+        all_avail_actions = {**end_turn_actions, **buy_pet_actions, **buy_food_actions, **buy_combine_actions, **team_combine_actions, **sell_actions, **roll_actions, **reorder_actions}
         assert total_action_len == len(all_avail_actions)
 
         return all_avail_actions
@@ -368,3 +395,13 @@ class SuperAutoPetsEnv(gym.Env):
         onehot_encoded = encoder.fit_transform(np_array)
         collapsed = np.sum(onehot_encoded, axis=0)
         return collapsed
+
+def get_action_name(k: int) -> str:
+    name_val = list(SuperAutoPetsEnv.ACTION_BASE_NUM.items())
+
+    assert k >= 0
+    for (start_name, _), (end_name, end_val) in zip(name_val[:-1], name_val[1:]):
+        if k < end_val:
+            return start_name
+    else:
+        return end_name
