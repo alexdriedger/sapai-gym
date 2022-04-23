@@ -146,7 +146,12 @@ class SuperAutoPetsEnv(gym.Env):
         assert 0 <= self.player.wins <= 10
         if self.valid_actions_only:
             assert self.bad_action_reward_sum == 0
-        return self.player.wins / 10 + self.bad_action_reward_sum
+        # Linear reward
+        # return self.player.wins / 10 + self.bad_action_reward_sum
+        # Quadratic reward
+        # return (self.player.wins * self.player.wins) / 100 + self.bad_action_reward_sum
+        # Exponential reward
+        return (2**self.player.wins  / 1024 if self.player.wins  != 0 else 0) + self.bad_action_reward_sum
 
     def _avail_end_turn(self):
         action_dict = dict()
