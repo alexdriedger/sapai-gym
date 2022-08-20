@@ -83,7 +83,7 @@ are divided by 50, to remain in [0, 1]. All other features are scaled to [0, 1].
 
 ## Opponent Generation
 
-If Super Auto Pets, when you end your turn in the shop, you fight an opponent. The question of how to generate this
+In Super Auto Pets, when you end your turn in the shop, you fight an opponent. The question of how to generate this
 opponent when simulating Super Auto Pets in a controlled environment is interesting and could have multiple different answers and implementations.
 
 In order to allow flexibility in `sapai-gym`, an opponent generator is passed into the environment, which the environment
