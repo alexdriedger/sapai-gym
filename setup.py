@@ -7,6 +7,6 @@ setup(
       install_requires=[
           "sapai @ git+https://github.com/manny405/sapai.git@main",
           "gym~=0.21.0",
-          "sklearn"
+          "scikit-learn"
       ]
 )
